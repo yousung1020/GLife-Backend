@@ -5,6 +5,7 @@ from rest_framework import status
 
 # --- Models ---
 from organizations.models import Employee
+from organizations.models import Company
 from .models import MotionType
 
 # --- Serializers ---
@@ -24,7 +25,6 @@ class MotionTypeViewSet(ModelViewSet):
     """
     queryset = MotionType.objects.all().order_by('motion_name')
     serializer_class = MotionTypeSerializer
-    # permission_classes 제거
 
 
 class MotionRecordingView(APIView):
@@ -50,10 +50,9 @@ class UnifiedEvaluationView(APIView):
     """
     # permission_classes 제거
 
-    def _try_get_employee(self, emp_no: str):
+    def _try_get_employee(self, emp_no: str, company: Company):
         try:
-            # company 정보 없이 emp_no만으로 조회
-            return Employee.objects.get(emp_no=emp_no)
+            return Employee.objects.get(company=company, emp_no=emp_no)
         except Employee.DoesNotExist:
             return None
 
@@ -68,8 +67,12 @@ class UnifiedEvaluationView(APIView):
         emp_no = validated_data['empNo']
         readings = validated_data['sensorData']
 
-        employee = self._try_get_employee(emp_no)
-        
+        # 고정된 하나의 회사만 가져옴(biz_no를 지정하여 하나 가져옴, 아직은 지정X)
+        biz_no = ""
+        company = Company.objects.get(biz_no=biz_no)
+
+        employee = self._try_get_employee(emp_no, company)
+
         if not employee:
             return Response({"detail": f"해당 사원번호({emp_no})가 존재하지 않습니다."}, status=status.HTTP_404_NOT_FOUND)
 

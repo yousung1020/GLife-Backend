@@ -26,8 +26,7 @@ def run_evaluation(motion_name: str, employee: Employee, raw_sensor_data: list) 
         recording_data = {
             "user": employee.id,
             "motion_type": motion_type.id,
-            "score": result.get("score"),
-            "sensor_data_json": raw_sensor_data
+            "score": result.get("score")
         }
         
         serializer = UserRecordingSerializer(data=recording_data)
@@ -47,8 +46,6 @@ def update_max_dtw_for_motion(motion_type: MotionType):
     """
     특정 MotionType에 대해 max_dtw_distance를 재계산하고 저장함.
     """
-    print(f"'{motion_type.motion_name}'의 max_dtw_distance 재계산을 시작합니다.")
-
     reference_recordings = MotionRecording.objects.filter(motion_type=motion_type, score_category="reference")
     zero_score_recordings = MotionRecording.objects.filter(motion_type=motion_type, score_category="zero_score")
 

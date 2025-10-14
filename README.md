@@ -1,127 +1,275 @@
-📑 API 명세서 (현재 코드 기준)
-1. Organizations (회사 & 직원 관리)
-회사
+# GLife API 명세서
 
-POST /api/organizations/companies/
+## 1. 인증 (Authentication)
 
-회사 생성 (회원가입)
+본 API는 두 가지 종류의 엔드포인트 그룹이 있으며, 각각 다른 인증 정책을 가집니다.
 
-GET /api/organizations/companies/
+### 1.1. 웹 대시보드 API
+- **대상:** `/api/organizations/`, `/api/courses/`, `/api/enrollments/` 등 회사 관리자가 사용하는 API
+- **방식:** **JWT 인증**이 필요합니다. 로그인 API를 통해 발급받은 Access Token을 모든 요청의 헤더에 포함해야 합니다.
+- **Header:** `Authorization: Bearer <your_jwt_access_token>`
 
-회사 목록 조회
+### 1.2. AI 평가 API
+- **대상:** `/api/ai/` 하위의 모든 API
+- **방식:** 현재는 전시용으로 단일 회사만 사용한다고 가정하므로, 별도의 **인증이 필요 없습니다.**
 
-GET /api/organizations/companies/{id}/
+---
 
-특정 회사 상세 조회
+## 2. Organizations (회사 & 직원)
 
-PUT /api/organizations/companies/{id}/
+### 2.1. 회사 로그인
+- **Endpoint:** `POST /api/organizations/login/`
+- **설명:** 사업자등록번호와 비밀번호로 로그인하여 JWT(Access Token, Refresh Token)를 발급받습니다.
+- **인증:** 필요 없음
+- **요청 본문 (Request Body):**
+  ```json
+  {
+      "biz_no": "0123456789",
+      "password": "sms"
+  }
+  ```
+- **성공 응답 (Success Response `200 OK`):**
+  ```json
+  {
+      "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "company": {
+          "biz_no": "0123456789",
+          "name": "테스트 회사"
+      }
+  }
+  ```
 
-회사 정보 수정
+### 2.2. Access Token 재발급
+- **Endpoint:** `POST /api/organizations/refresh/`
+- **설명:** 만료된 Access Token을 재발급 받기 위해 Refresh Token을 사용합니다.
+- **인증:** 필요 없음
+- **요청 본문 (Request Body):**
+  ```json
+  {
+      "refresh": "저장해두었던_리프레시_토큰"
+  }
+  ```
+- **성공 응답 (Success Response `200 OK`):**
+  ```json
+  {
+      "access": "새로_발급된_액세스_토큰"
+  }
+  ```
 
-DELETE /api/organizations/companies/{id}/
+### 2.3. 직원 목록 조회 및 생성
+- **Endpoint:** `GET, POST /api/organizations/employees/`
+- **설명:** `GET`으로 회사 전체 직원 목록을 조회하거나, `POST`로 새 직원을 등록합니다.
+- **인증:** JWT 인증 필요
+- **쿼리 파라미터 (Query Parameters for `GET`):**
+  - `emp_no` (optional): 특정 사원번호로 직원을 필터링합니다. (예: `?emp_no=EMP001`)
+  - `name` (optional): 특정 이름을 포함하는 직원을 필터링합니다. (예: `?name=홍길동`)
+- **`POST` 요청 본문 (Request Body):**
+  ```json
+  {
+      "emp_no": "EMP001",
+      "name": "홍길동",
+      "dept": "개발팀",
+      "phone": "010-1234-5678",
+      "email": "gildong@example.com"
+  }
+  ```
+- **`POST` 성공 응답 (Success Response `201 Created`):**
+  ```json
+  {
+      "id": 1,
+      "emp_no": "EMP001",
+      "name": "홍길동",
+      "dept": "개발팀",
+      "phone": "010-1234-5678",
+      "email": "gildong@example.com",
+      "company": 1
+  }
+  ```
 
-회사 삭제
+### 2.4. 직원 정보 상세 조회, 수정, 삭제
+- **Endpoint:** `GET, PUT, DELETE /api/organizations/employees/{id}/`
+- **설명:** 특정 `id`를 가진 직원의 정보를 조회, 수정, 삭제합니다.
+- **인증:** JWT 인증 필요
 
-로그인
+### 2.5. 직원 대량 등록
+- **Endpoint:** `POST /api/organizations/employees/bulk/`
+- **설명:** JSON 배열 형태로 여러 직원을 한 번에 등록하거나 업데이트합니다.
+- **인증:** JWT 인증 필요
+- **요청 본문 (Request Body):**
+  ```json
+  {
+      "employees": [
+          {
+              "emp_no": "EMP002",
+              "name": "이순신",
+              "dept": "전략기획팀"
+          },
+          {
+              "emp_no": "EMP003",
+              "name": "강감찬",
+              "dept": "디자인팀",
+              "email": "gamchan@example.com"
+          }
+      ]
+  }
+  ```
+- **성공 응답 (Success Response `200 OK`):**
+  ```json
+  {
+      "message": "직원 정보 대량 처리가 완료되었습니다.",
+      "created": 2,
+      "updated": 0
+  }
+  ```
 
-POST /api/organizations/login/
+---
 
-사업자등록번호(biz_no) + 비밀번호 로그인
+## 3. Courses (교육 과정)
 
-JWT 토큰 발급
+**참고:** 현재 URL 구조상 교육 과정 관련 API는 모두 `/api/courses/courses/` 경로로 시작합니다.
 
-직원
+### 3.1. 교육 과정 목록 조회 및 생성
+- **Endpoint:** `GET, POST /api/courses/courses/`
+- **설명:** `GET`으로 회사의 모든 교육 과정을 조회하고, `POST`로 새 과정을 생성합니다.
+- **인증:** JWT 인증 필요
+- **`POST` 요청 본문 (Request Body):**
+  ```json
+  {
+      "title": "2025년 3분기 정기 안전 교육",
+      "description": "화학 물질 취급 및 보관에 대한 안전 수칙 교육",
+      "year": 2025,
+      "quarter": 3
+  }
+  ```
+- **`POST` 성공 응답 (Success Response `201 Created`):**
+  ```json
+  {
+      "id": 1,
+      "title": "2025년 3분기 정기 안전 교육",
+      "description": "화학 물질 취급 및 보관에 대한 안전 수칙 교육",
+      "company": 1,
+      "created_at": "2025-10-08T12:00:00Z",
+      "year": 2025,
+      "quarter": 3
+  }
+  ```
 
-GET /api/organizations/employees/
+### 3.2. 교육 과정 상세 조회, 수정, 삭제
+- **Endpoint:** `GET, PUT, DELETE /api/courses/courses/{id}/`
+- **설명:** 특정 `id`를 가진 교육 과정의 정보를 조회, 수정, 삭제합니다.
+- **인증:** JWT 인증 필요
 
-로그인된 회사 소속 직원 목록
+### 3.3. 과정별 대량 수강 등록
+- **Endpoint:** `POST /api/courses/courses/{id}/enroll/`
+- **설명:** 특정 교육 과정(`id`)에 여러 직원을 한 번에 수강 등록하거나, 기존 수강 상태를 업데이트합니다.
+- **인증:** JWT 인증 필요
+- **요청 본문 (Request Body):**
+  ```json
+  {
+      "employee_ids": [15, 23, 42],
+      "status": "enrolled"
+  }
+  ```
+- **성공 응답 (Success Response `200 OK`):**
+  ```json
+  {
+      "message": "대량 수강 신청 처리가 완료되었습니다.",
+      "course_title": "2025년 3분기 정기 안전 교육",
+      "created": 3,
+      "updated": 0
+  }
+  ```
 
-POST /api/organizations/employees/
+---
 
-직원 생성
+## 4. Enrollments (수강 신청)
 
-GET /api/organizations/employees/{id}/
+### 4.1. 수강 신청 목록 조회 및 생성
+- **Endpoint:** `GET, POST /api/enrollments/`
+- **설명:** `GET`으로 회사의 모든 수강 신청 내역을 조회하고, `POST`로 직원을 특정 과정에 등록합니다.
+- **인증:** JWT 인증 필요
+- **`POST` 요청 본문 (Request Body):**
+  ```json
+  {
+      "employee": 1,
+      "course": 1,
+      "status": "enrolled"
+  }
+  ```
+- **`POST` 성공 응답 (Success Response `201 Created`):**
+  ```json
+  {
+      "id": 1,
+      "employee": 1,
+      "course": 1,
+      "enrolled_at": "2025-10-08T13:00:00Z",
+      "status": "enrolled"
+  }
+  ```
 
-직원 상세 조회
+### 4.2. 수강 신청 상세 조회, 수정, 삭제
+- **Endpoint:** `GET, PUT, DELETE /api/enrollments/{id}/`
+- **설명:** 특정 `id`를 가진 수강 신청 정보를 조회, 수정, 삭제합니다.
+- **인증:** JWT 인증 필요
 
-PUT /api/organizations/employees/{id}/
+---
 
-직원 수정
+## 5. AI (동작 인식 & 평가)
 
-DELETE /api/organizations/employees/{id}/
+### 5.1. 동작 유형 목록 조회 및 생성
+- **Endpoint:** `GET, POST /api/ai/motion-types/`
+- **설명:** 평가할 동작의 종류(`MotionType`)를 조회하거나 새로 등록합니다.
+- **인증:** 필요 없음
+- **`POST` 요청 본문 (Request Body):**
+  ```json
+  {
+      "motionType": "fire_extinguisher_lift",
+      "description": "소화기 들기 동작"
+  }
+  ```
 
-직원 삭제
+### 5.2. 기준 동작 데이터 등록
+- **Endpoint:** `POST /api/ai/recordings/`
+- **설명:** AI 평가의 기준이 되는 모범(`reference`) 동작 또는 0점(`zero_score`) 동작의 센서 데이터를 등록합니다. 이 API가 호출될 때마다 점수 산출의 기준이 되는 `max_dtw_distance`가 자동으로 재계산될 수 있습니다.
+- **인증:** 필요 없음
+- **요청 본문 (Request Body):**
+  ```json
+  {
+      "motionName": "fire_extinguisher_lift",
+      "scoreCategory": "reference",
+      "sensorData": [
+          {"flex1": 10.0, "gyro_x": -0.5, "..."},
+          {"flex1": 12.0, "gyro_x": -0.6, "..."}
+      ]
+  }
+  ```
 
-POST /api/organizations/employees/bulk/
-
-직원 대량 업로드(JSON 배열)
-
-2. Courses (교육 과정)
-
-GET /api/courses/
-
-교육 과정 목록 조회
-
-POST /api/courses/
-
-과정 생성
-
-GET /api/courses/{id}/
-
-특정 과정 상세 조회
-
-PUT /api/courses/{id}/
-
-과정 수정
-
-DELETE /api/courses/{id}/
-
-과정 삭제
-
-3. Enrollments (수강 신청)
-
-GET /api/enrollments/
-
-수강신청 목록 조회
-
-POST /api/enrollments/
-
-수강신청 생성
-
-GET /api/enrollments/{id}/
-
-특정 수강신청 상세 조회
-
-PUT /api/enrollments/{id}/
-
-수강 상태 수정
-
-DELETE /api/enrollments/{id}/
-
-수강신청 취소
-
-4. AI (동작 인식 & 평가)
-
-GET /api/ai/motion-types/
-
-동작 종류 목록 조회
-
-POST /api/ai/motion-types/
-
-동작 종류 등록
-
-GET /api/ai/motion-recordings/
-
-동작 녹화 데이터 조회
-
-POST /api/ai/motion-recordings/
-
-동작 녹화 데이터 업로드
-
-POST /api/ai/evaluate/
-
-업로드된 사용자 동작과 참조 동작 비교 (DTW 기반 평가)
-
-POST /api/ai/devices/
-
-Unity 장비 인증 (센서 등록)
+### 5.3. 사용자 동작 평가
+- **Endpoint:** `POST /api/ai/evaluate/`
+- **설명:** Unity 클라이언트로부터 받은 센서 데이터를 실시간으로 평가하여 점수를 반환합니다. 백엔드는 내부적으로 미리 지정된 회사 소속의 직원으로 간주하여 평가를 진행합니다.
+- **인증:** 필요 없음
+- **요청 본문 (Request Body):**
+  ```json
+  {
+      "motionName": "fire_extinguisher_lift",
+      "empNo": "EMP001",
+      "sensorData": [
+          {"flex1": 10.5, "gyro_x": -0.5, "..."},
+          {"flex1": 12.1, "gyro_x": -0.6, "..."}
+      ]
+  }
+  ```
+- **성공 응답 (Success Response `200 OK`):**
+  ```json
+  {
+      "ok": true,
+      "detail": "평가가 완료되었습니다.",
+      "evaluation": {
+          "evaluator_motion_name": "fire_extinguisher_lift",
+          "score": 87.5,
+          "avg_dtw_distance": 150.45,
+          "normalized_distance": 0.125
+      }
+  }
+  ```
