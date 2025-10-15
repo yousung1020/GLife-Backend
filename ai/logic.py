@@ -6,7 +6,7 @@ from .models import MotionType, MotionRecording
 from organizations.models import Employee
 from .serializers import UserRecordingSerializer
 
-def run_evaluation(motion_name: str, employee: Employee, raw_sensor_data: list) -> dict:
+def run_evaluation(motion_name: str, employee: Employee, raw_sensor_data: list, device_category: str) -> dict:
     """
     센서 데이터 리스트를 받아 평가를 수행하고 결과를 반환하는 핵심 함수
     """
@@ -16,9 +16,14 @@ def run_evaluation(motion_name: str, employee: Employee, raw_sensor_data: list) 
         return {"error": f"'{motion_name}' 동작을 찾을 수 없습니다."}
 
     try:
-        evaluator = get_evaluator(motion_name)
+        evaluator = get_evaluator(motion_name, device_category)
 
-        result = evaluator.evaluator_user_motion(raw_sensor_data, motion_type.max_dtw_distance)
+        max_dist = motion_type.max_dtw_distances.get(device_category)
+
+        if not max_dist:
+            return {"error": f"'{motion_name}' 동작({device_category})의 평가 기준값이 설정되지 않았습니다."}
+
+        result = evaluator.evaluator_user_motion(raw_sensor_data, max_dist)
         
         if "error" in result:
             return result
@@ -26,7 +31,8 @@ def run_evaluation(motion_name: str, employee: Employee, raw_sensor_data: list) 
         recording_data = {
             "user": employee.id,
             "motion_type": motion_type.id,
-            "score": result.get("score")
+            "score": result.get("score"),
+            "device_category": device_category
         }
         
         serializer = UserRecordingSerializer(data=recording_data)
@@ -41,25 +47,26 @@ def run_evaluation(motion_name: str, employee: Employee, raw_sensor_data: list) 
         print(f"[Error] Evaluation failed for {motion_name}: {e}")
         return {"error": f"평가 중 오류 발생: {str(e)}"}
 
+def update_max_dtw_for_motion(motion_type: MotionType, device_category: str):
+    """
+    특정 MotionType과 device_category에 대해 max_dtw_distance를 재계산하고 저장함.
+    """
 
-def update_max_dtw_for_motion(motion_type: MotionType):
-    """
-    특정 MotionType에 대해 max_dtw_distance를 재계산하고 저장함.
-    """
-    reference_recordings = MotionRecording.objects.filter(motion_type=motion_type, score_category="reference")
-    zero_score_recordings = MotionRecording.objects.filter(motion_type=motion_type, score_category="zero_score")
+    reference_recordings = MotionRecording.objects.filter(
+        motion_type=motion_type, score_category="reference", device_category=device_category
+    )
+    zero_score_recordings = MotionRecording.objects.filter(
+        motion_type=motion_type, score_category="zero_score", device_category=device_category
+    )
 
     if not reference_recordings.exists() or not zero_score_recordings.exists():
-        print("모범 동작 또는 0점 동작 데이터가 부족하여 max_dtw_distance를 계산할 수 없습니다.")
+        print(f"{device_category}의 모범 동작 또는 0점 동작 데이터가 부족하여 max_dtw_distance를 계산할 수 없습니다.")
         return
 
-    # numpy 배열로 변환
-    # 리스트 내포 문법
-    ref_motions = [rec.get_sensor_data_to_numpy() for rec in reference_recordings] # db에서 가져온 모범 동작 센서 데이터
-    zero_motions = [rec.get_sensor_data_to_numpy() for rec in zero_score_recordings] # db에서 가져온 빵점 동작 센서 데이터
+    ref_motions = [rec.get_sensor_data_to_numpy() for rec in reference_recordings]
+    zero_motions = [rec.get_sensor_data_to_numpy() for rec in zero_score_recordings]
 
-    max_distances = [] # 최대 dtw 거리를 담을 배열
-
+    max_distances = []
     for ref_motion in ref_motions:
         for zero_motion in zero_motions:
             if ref_motion.size == 0 or zero_motion.size == 0:
@@ -73,14 +80,13 @@ def update_max_dtw_for_motion(motion_type: MotionType):
 
     if max_distances:
         new_max_dtw = max(max_distances)
+        new_max_dtw *= 1.1
         
-        # 약간의 여유(10%)를 추가하여 최대값을 설정하면, 0점 동작보다 약간 나은 동작이 0점이 되는 것을 방지할 수 있음
-        new_max_dtw *= 1.1 
-        motion_type.max_dtw_distance = new_max_dtw
+        motion_type.max_dtw_distances[device_category] = new_max_dtw
         motion_type.save()
-        print(f"'{motion_type.motion_name}'의 새로운 max_dtw_distance: {new_max_dtw}")
 
-        # 이 동작 유형에 대한 평가기 캐시를 지워서 다음 평가 시 새로운 max_dtw 값을 반영하도록 함
-        clear_evaluator_cache(motion_type.motion_name)
+        # print(f"'{motion_type.motion_name}' ({device_category})의 새로운 max_dtw_distance: {new_max_dtw}")
+
+        clear_evaluator_cache(motion_type.motion_name, device_category)
     else:
         print("유효한 DTW 거리를 계산하지 못했습니다.")
