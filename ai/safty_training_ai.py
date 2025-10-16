@@ -5,18 +5,7 @@ import matplotlib.pyplot as plt
 from dtaidistance import dtw_ndim
 from scipy.signal import savgol_filter
 
-# 장비별로 다른 전처리 로직을 호출하는 분배 함수
-def preprocess_sensor_data(raw_data_dicts, device_category: str) -> np.ndarray:
-    if device_category == 'gloves':
-        return _preprocess_glove_data(raw_data_dicts)
-    elif device_category == 'lip_motion':
-        return _preprocess_leap_motion_data(raw_data_dicts)
-    else:
-        # 지원하지 않는 장비일 경우 빈 배열 반환 또는 오류 발생
-        return np.array([])
-
-# 립모션 데이터 전처리 함수 (세부 로직 구현 필요)
-def _preprocess_leap_motion_data(raw_data_dicts) -> np.ndarray:
+def preprocess_sensor_data(raw_data_dicts) -> np.ndarray:
     if not raw_data_dicts:
         return np.array([])
     
@@ -31,47 +20,18 @@ def _preprocess_leap_motion_data(raw_data_dicts) -> np.ndarray:
     normalized_data = pd.DataFrame(index=smoothed_data.index, columns=smoothed_data.columns)
 
     for col in smoothed_data.columns:
-        # 이 부분은 실제 립모션 센서 스펙에 맞게 수정해야 함.
         if "flex" in col:
             s_min, s_max = 0, 100
-        elif "gyro" in col:
+        elif "qw" in col:
+            s_min, s_max = -30, 30
+        elif "qx" in col:
+            s_min, s_max = -30, 30
+        elif "qy" in col:
+            s_min, s_max = -30, 30
+        elif "qz" in col:
             s_min, s_max = -30, 30
         else:
-            # 기본값 또는 알 수 없는 센서 처리
-            s_min, s_max = 0, 100 
-    
-        range_sensor = s_max - s_min
-        if range_sensor == 0:
-            normalized_data[col] = 0
-        else:
-            normalized_data[col] = (smoothed_data[col] - s_min) / range_sensor
-    
-    return normalized_data.values
-
-# 기존 전처리 로직을 장갑 데이터용 함수로 분리
-def _preprocess_glove_data(raw_data_dicts) -> np.ndarray:
-    if not raw_data_dicts:
-        return np.array([])
-    
-    df = pd.DataFrame(raw_data_dicts)
-
-    window_length = min(df.shape[0] - (df.shape[0] % 2 == 0), 11)
-    if window_length < 3:
-        window_length = 3
-
-    smoothed_data = df.apply(lambda col: savgol_filter(col, window_length, 3))
-
-    normalized_data = pd.DataFrame(index=smoothed_data.index, columns=smoothed_data.columns)
-
-    for col in smoothed_data.columns:
-        # 이 부분은 실제 장갑 센서 스펙에 맞게 수정해야 함.
-        if "flex" in col:
             s_min, s_max = 0, 100
-        elif "gyro" in col:
-            s_min, s_max = -30, 30
-        else:
-            # 기본값 또는 알 수 없는 센서 처리
-            s_min, s_max = 0, 100 
     
         range_sensor = s_max - s_min
         if range_sensor == 0:
@@ -83,30 +43,25 @@ def _preprocess_glove_data(raw_data_dicts) -> np.ndarray:
 
 
 class MotionEvaluator:
-    def __init__(self, motion_name: str, device_category: str):
+    def __init__(self, motion_name: str):
         self.motion_name = motion_name
-        self.device_category = device_category
-        # [수정] device_category에 맞는 모범 동작만 불러오도록 변경
         self.reference_motions_preprocessed = self._load_reference_motions()
     
     def _load_reference_motions(self):
         reference_records = MotionRecording.objects.filter(
             motion_type__motion_name=self.motion_name,
-            device_category=self.device_category, # 장비 종류 필터링 추가
             score_category="reference"
         )
-        # [주의] 기준 데이터는 이미 전처리된 상태로 DB에 저장되어 있다고 가정
         return [rec.get_sensor_data_to_numpy() for rec in reference_records]
     
     def _preprocess_user_data(self, user_raw_data):
-        # [수정] 전처리 시 device_category 전달
-        return preprocess_sensor_data(user_raw_data, self.device_category)
+        return preprocess_sensor_data(user_raw_data)
 
     def evaluator_user_motion(self, user_raw_data, max_dtw_distance: float):
         preprocessed_user_data = self._preprocess_user_data(user_raw_data)
 
         if not self.reference_motions_preprocessed:
-            return {"error": f"{self.device_category}를 위한 모범 동작 데이터가 없습니다."}
+            return {"error": "모범 동작 데이터가 없습니다."}
 
         dtw_distances = []
         for ref_data in self.reference_motions_preprocessed:

@@ -231,14 +231,13 @@
 
 ### 5.2. 기준 동작 데이터 등록
 - **Endpoint:** `POST /api/ai/recordings/`
-- **설명:** 특정 장비(`deviceCategory`)에 대한 모범(`reference`) 또는 0점(`zero_score`) 동작의 센서 데이터를 등록합니다. 이 API가 호출될 때마다 해당 장비에 대한 점수 산출 기준(`max_dtw_distances`)이 자동으로 재계산될 수 있습니다.
+- **설명:** AI 평가의 기준이 되는 모범(`reference`) 동작 또는 0점(`zero_score`) 동작의 센서 데이터를 등록합니다. 이 API가 호출될 때마다 점수 산출의 기준이 되는 `max_dtw_distance`가 자동으로 재계산될 수 있습니다.
 - **인증:** 필요 없음
 - **요청 본문 (Request Body):**
   ```json
   {
       "motionName": "fire_extinguisher_lift",
       "scoreCategory": "reference",
-      "deviceCategory": "gloves",
       "sensorData": [
           {"flex1": 10.0, "gyro_x": -0.5, "..."},
           {"flex1": 12.0, "gyro_x": -0.6, "..."}
@@ -248,14 +247,13 @@
 
 ### 5.3. 사용자 동작 평가
 - **Endpoint:** `POST /api/ai/evaluate/`
-- **설명:** Unity 클라이언트로부터 받은 특정 장비(`deviceCategory`)의 센서 데이터를 실시간으로 평가하여 점수를 반환합니다. 백엔드는 내부적으로 미리 지정된 회사 소속의 직원으로 간주하여 평가를 진행합니다.
+- **설명:** Unity 클라이언트로부터 받은 센서 데이터를 실시간으로 평가하여 점수를 반환합니다. 백엔드는 내부적으로 미리 지정된 회사 소속의 직원으로 간주하여 평가를 진행합니다.
 - **인증:** 필요 없음
 - **요청 본문 (Request Body):**
   ```json
   {
       "motionName": "fire_extinguisher_lift",
       "empNo": "EMP001",
-      "deviceCategory": "gloves",
       "sensorData": [
           {"flex1": 10.5, "gyro_x": -0.5, "..."},
           {"flex1": 12.1, "gyro_x": -0.6, "..."}
