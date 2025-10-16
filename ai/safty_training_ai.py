@@ -21,17 +21,11 @@ def preprocess_sensor_data(raw_data_dicts) -> np.ndarray:
 
     for col in smoothed_data.columns:
         if "flex" in col:
-            s_min, s_max = 0, 100
-        elif "qw" in col:
-            s_min, s_max = -30, 30
-        elif "qx" in col:
-            s_min, s_max = -30, 30
-        elif "qy" in col:
-            s_min, s_max = -30, 30
-        elif "qz" in col:
-            s_min, s_max = -30, 30
+            s_min, s_max = 0, 4000
+        elif "q" in col:
+            s_min, s_max = -1.0, 1.0
         else:
-            s_min, s_max = 0, 100
+            s_min, s_max = 0, 4000
     
         range_sensor = s_max - s_min
         if range_sensor == 0:

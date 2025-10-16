@@ -18,8 +18,14 @@ def run_evaluation(motion_name: str, employee: Employee, raw_sensor_data: list) 
     try:
         evaluator = get_evaluator(motion_name)
 
+        # [디버깅] 1. 사용되는 max_dtw_distance 값 출력
+        print(f"[DEBUG] 사용된 max_dtw_distance: {motion_type.max_dtw_distance}")
+
         result = evaluator.evaluator_user_motion(raw_sensor_data, motion_type.max_dtw_distance)
         
+        # [디버깅] 2. evaluator가 계산한 상세 결과 출력
+        print(f"[DEBUG] 평가 결과 상세: {result}")
+
         if "error" in result:
             return result
 

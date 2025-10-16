@@ -48,7 +48,7 @@ class UnifiedEvaluationView(APIView):
         emp_no = validated_data['empNo']
         readings = validated_data['sensorData']
 
-        company = Company.objects.first()
+        company = Company.objects.get(biz_no="0123456789")
         if not company:
             return Response({"error": "데이터베이스에 등록된 회사가 없습니다."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
