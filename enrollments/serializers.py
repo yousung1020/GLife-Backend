@@ -26,8 +26,8 @@ class BulkEnrollmentSerializer(serializers.Serializer):
         allow_empty=False,
         help_text="수강 등록할 직원들의 ID 목록"
     )
-    status = serializers.CharField(
+    status = serializers.BooleanField(
         required=False,
-        default="enrolled",
+        default=False,
         help_text="일괄 적용할 수강 상태"
     )

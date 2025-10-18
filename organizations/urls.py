@@ -3,7 +3,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from .views import CompanyTokenObtainPairView, EmployeeViewSet
+from .views import CompanyTokenObtainPairView, EmployeeViewSet, UserRecordingView
 
 # 라우터 생성
 router = DefaultRouter()
@@ -21,4 +21,5 @@ urlpatterns = [
     # GET, PUT, DELETE /api/organizations/employees/<id>/
     # POST /api/organizations/employees/bulk/
     path("", include(router.urls)),
+    path("<str:slug>/", UserRecordingView.as_view(), name="user-recording"),
 ]

@@ -5,8 +5,8 @@ from rest_framework import status
 
 # --- Models ---
 from organizations.models import Employee, Company
-from .models import MotionType
-
+from .models import MotionType, UserRecording
+from courses.models import Course
 # --- Serializers ---
 from .serializers import EvaluationRequestSerializer, MotionSerializer, MotionTypeSerializer
 
@@ -72,3 +72,25 @@ class UnifiedEvaluationView(APIView):
             "evaluation": evaluation_result
         }
         return Response(response_data, status=status.HTTP_200_OK)
+
+class UserRecordingView(APIView):
+    def get(self, request, slug, *args, **kwargs):
+        try:
+            motion_type = MotionType.objects.get(motion_name="화재 대피 훈련")
+        except MotionType.DoesNotExist:
+            return Response({"detail": "기준이 되는 MotionType('화재 대피 훈련')이 존재하지 않습니다."},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        user_recording = UserRecording.objects.filter(user__emp_no=slug, motion_type=motion_type).first()
+
+        if not user_recording:
+            return Response({"detail": "해당 사용자의 평가 기록을 찾을 수 없습니다."},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        return Response({
+            "ok": True,
+            "user": user_recording.user.name,
+            "motion_type": user_recording.motion_type.motion_name,
+            "score": user_recording.score,
+            "recorded_at": user_recording.recorded_at,
+        }, status=status.HTTP_200_OK)

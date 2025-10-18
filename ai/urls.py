@@ -14,7 +14,6 @@ urlpatterns = [
     # 기존 URL
     path('recordings/', MotionRecordingView.as_view(), name='motion-recording'),
     path('evaluate/', UnifiedEvaluationView.as_view(), name='unified-evaluation'),
-    
     # 라우터에 등록된 URL들을 포함 (/api/ai/motion-types/ 등)
     path('', include(router.urls)),
 ]

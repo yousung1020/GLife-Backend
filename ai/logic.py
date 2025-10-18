@@ -2,8 +2,10 @@
 
 from dtaidistance import dtw_ndim
 from .evaluator_cache import get_evaluator, clear_evaluator_cache
-from .models import MotionType, MotionRecording
+from .models import MotionType, MotionRecording, UserRecording
 from organizations.models import Employee
+from courses.models import Course
+from enrollments.models import Enrollment
 from .serializers import UserRecordingSerializer
 
 def run_evaluation(motion_name: str, employee: Employee, raw_sensor_data: list) -> dict:
@@ -29,17 +31,25 @@ def run_evaluation(motion_name: str, employee: Employee, raw_sensor_data: list) 
         if "error" in result:
             return result
 
-        recording_data = {
-            "user": employee.id,
-            "motion_type": motion_type.id,
-            "score": result.get("score")
-        }
-        
-        serializer = UserRecordingSerializer(data=recording_data)
-        if serializer.is_valid():
-            serializer.save()
-        else:
-            print(f"[Critical] 사용자 평가 기록 저장 실패: {serializer.errors}")
+        # 동일한 사용자와 동작 유형에 대한 기록이 있으면 점수를 업데이트하고, 없으면 새로 생성합니다.
+        UserRecording.objects.update_or_create(
+            user=employee,
+            motion_type=motion_type,
+            defaults={'score': result.get("score")}
+        )
+
+        try:
+            # 평가된 motion_type과 동일한 제목의 Course를 찾습니다.
+            course = Course.objects.get(title="소화기 사용 훈련")
+            
+            # 해당 직원과 Course에 대한 수강 정보(Enrollment)를 찾아 status를 True로 업데이트합니다.
+            Enrollment.objects.filter(employee=employee, course=course).update(status=True)
+            print(f"Updated enrollment status for {employee.name} in course '{course.title}'.")
+
+        except Course.DoesNotExist:
+            print(f"[Warning] Course with title '{motion_type.motion_name}' not found. Cannot update enrollment status.")
+        except Exception as e:
+            print(f"[Error] Failed to update enrollment status: {e}")
 
         return result
 

@@ -9,7 +9,6 @@ from organizations.models import Employee
 from enrollments.models import Enrollment
 from enrollments.serializers import BulkEnrollmentSerializer
 
-
 class CourseListCreateAPI(generics.ListCreateAPIView):
     serializer_class = CourseSerializer
     permission_classes = [IsAuthenticated]
@@ -46,6 +45,7 @@ class BulkEnrollmentView(APIView):
             return Response({"error": "해당 교육 과정을 찾을 수 없습니다."}, status=status.HTTP_404_NOT_FOUND)
 
         # 2. 요청 데이터를 BulkEnrollmentSerializer로 검증합니다.
+        print(request.data)
         serializer = BulkEnrollmentSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

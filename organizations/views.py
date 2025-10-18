@@ -4,9 +4,33 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Employee
+from ai.models import MotionType, UserRecording
+from .models import Employee, Company
 from .serializers import CompanyTokenObtainPairSerializer, EmployeeSerializer
+from enrollments.models import Enrollment
 
+class UserRecordingView(APIView):
+    def get(self, request, slug, *args, **kwargs):
+        motion_type = MotionType.objects.first()
+        if not motion_type:
+            return Response({"detail": "평가할 MotionType이 존재하지 않습니다."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            user_recording = UserRecording.objects.get(user__emp_no=slug, motion_type=motion_type)
+            user_status = Enrollment.objects.get(employee__emp_no=slug, course__title="소화기 사용 훈련").status
+        except UserRecording.DoesNotExist:
+            return Response({"detail": "해당 UserRecording을 찾을 수 없습니다."}, status=status.HTTP_404_NOT_FOUND)
+
+        print(user_recording.motion_type.motion_name)
+
+        return Response({
+            "ok": True,
+            "user": user_recording.user.name,
+            "motion_type": user_recording.motion_type.motion_name,
+            "score": user_recording.score,
+            "recorded_at": user_recording.recorded_at,
+            "status": user_status,
+        }, status=status.HTTP_200_OK)
 
 class CompanyTokenObtainPairView(APIView):
     def post(self, request, *args, **kwargs):
